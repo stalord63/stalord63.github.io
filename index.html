@@ -215,7 +215,7 @@ const FINAL_HTML = `
   <ul>
     <li>GitHub — <a href="https://github.com/stalord63" target="_blank" rel="noopener">github.com/stalord63</a></li>
     <li>LinkedIn — <a href="https://in.linkedin.com/in/aditya-singh-264627203" target="_blank" rel="noopener">aditya-singh-264627203</a></li>
-    <li>Portfolio — <a href="https://stalord.in" target="_blank" rel="noopener">stalord.in</a></li>
+    <li>Portfolio — <a href="https://stalord63.github.io/" target="_blank" rel="noopener">stalord63.github.io</a></li>
   </ul>
   <p style="margin-top:14px;color:#fbd000">SKILLS COLLECTED: <span id="finalSkills"></span>/${SKILLS.length}</p>
   <div id="finalIcons" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px"></div>
@@ -241,6 +241,44 @@ const sfx = {
   bump: () => beep(120, 0.08, "triangle", 0.06),
   win:  () => [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.16),i*140)),
 };
+
+// ---------------- background music ----------------
+// Original chiptune loop in classic NES style (the official Super Mario
+// theme is Nintendo-copyrighted, so this is an in-style composition).
+// Square lead + triangle bass, toggled with the M key.
+let musicOn = true, musicNext = 0;
+const STEP = 0.14; // seconds per eighth note
+const MELODY = [   // MIDI note numbers, null = rest
+  72,null,76,79,null,76,72,null, 74,76,77,null,76,74,71,null,
+  69,72,76,null,74,72,69,null,   67,69,71,74,72,null,null,null,
+];
+const BASSLINE = [
+  48,null,55,null,48,null,55,null, 50,null,57,null,50,null,55,null,
+  45,null,52,null,45,null,52,null, 55,null,55,null,48,null,null,null,
+];
+function midiFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+function playNote(m, t, dur, type, vol) {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type; o.frequency.value = midiFreq(m);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur);
+}
+function ensureAudio() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); }
+  catch (e) { /* audio unavailable */ }
+}
+setInterval(() => {
+  if (!audioCtx || !musicOn || state === "title") return;
+  if (musicNext < audioCtx.currentTime) musicNext = audioCtx.currentTime + 0.05;
+  while (musicNext < audioCtx.currentTime + 0.6) {
+    const bar = musicNext;
+    MELODY.forEach((m, i) => { if (m !== null) playNote(m, bar + i * STEP, STEP * 0.95, "square", 0.025); });
+    BASSLINE.forEach((m, i) => { if (m !== null) playNote(m, bar + i * STEP, STEP * 1.8, "triangle", 0.05); });
+    musicNext = bar + MELODY.length * STEP;
+  }
+}, 250);
 
 // ---------------- player sprite (pixel art) ----------------
 const PAL = { R:"#d82800", S:"#fca044", B:"#0048d8", H:"#5c2e00", W:"#fff" };
@@ -336,6 +374,11 @@ let toastTimer = null;
 addEventListener("keydown", (e) => {
   if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","Enter"].includes(e.key)) e.preventDefault();
   keys[e.key.toLowerCase()] = true;
+  ensureAudio();
+  if (e.key.toLowerCase() === "m") {
+    musicOn = !musicOn;
+    showToast(musicOn ? "♪ MUSIC ON" : "MUSIC OFF");
+  }
   if (e.key === "Enter") {
     if (state === "title") { state = "play"; sfx.coin(); }
     else if (state === "dialog") closeDialog();
@@ -347,7 +390,7 @@ addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
 // touch controls
 function bindTouch(id, key) {
   const el = document.getElementById(id);
-  const on = (e) => { e.preventDefault(); keys[key] = true; if (state === "title") state = "play"; };
+  const on = (e) => { e.preventDefault(); keys[key] = true; ensureAudio(); if (state === "title") state = "play"; };
   const off = (e) => { e.preventDefault(); keys[key] = false; };
   el.addEventListener("pointerdown", on);
   el.addEventListener("pointerup", off);
@@ -692,7 +735,7 @@ function drawTitle() {
   ctx.fillText("SENIOR SOFTWARE ENGINEER · 4.9 YRS · DEVOPS · AZURE · AI", W / 2, 252);
   ctx.fillStyle = "#fff";
   ctx.font = "15px 'Courier New', monospace";
-  ctx.fillText("← → MOVE      ↑ / SPACE JUMP      ENTER SELECT", W / 2, 330);
+  ctx.fillText("← → MOVE    ↑ / SPACE JUMP    ENTER SELECT    M MUSIC", W / 2, 330);
   ctx.fillText("HIT ? BLOCKS · COLLECT SKILL COINS · REACH THE CASTLE", W / 2, 358);
   if (Math.floor(performance.now() / 500) % 2 === 0) {
     ctx.fillStyle = "#fbd000";
@@ -701,7 +744,7 @@ function drawTitle() {
   }
   ctx.fillStyle = "#9ab";
   ctx.font = "12px 'Courier New', monospace";
-  ctx.fillText("© 1998 - " + new Date().getFullYear() + " STALORD.IN", W / 2, 500);
+  ctx.fillText("© 1998 - " + new Date().getFullYear() + " STALORD63.GITHUB.IO", W / 2, 500);
 }
 
 function draw() {
