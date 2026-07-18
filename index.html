@@ -53,6 +53,7 @@
     background: #000c; color: #fbd000; border: 3px solid #fbd000;
     padding: 8px 18px; font-size: 14px; letter-spacing: 2px;
     opacity: 0; transition: opacity .2s; pointer-events: none;
+    display: flex; align-items: center; white-space: nowrap;
   }
   #touch {
     position: absolute; bottom: 18px; left: 0; right: 0;
@@ -116,7 +117,9 @@ const ZONES = [
              <li>Completed Class 12th in 2016</li>
              <li>Scored <b>86.6%</b></li>
              <li>Unlocked: engineering entrance arc</li>
-           </ul>`,
+           </ul>
+           <p style="margin-top:12px;color:#7cfc9a">★ Skill coins appear from here on —
+           every skill ahead was acquired <b>after 2016</b>. Keep running to collect them!</p>`,
   },
   {
     x: 3300, sign: "2021",
@@ -133,6 +136,7 @@ const ZONES = [
     x: 5000, sign: "2021-25",
     title: "World 1-4 · Optum",
     sub: "Software Engineer (DevOps) · Gurugram · Sep 2021 – Jan 2025",
+    logo: `<span style="font-family:Arial,sans-serif;font-weight:800;font-size:26px;color:#FF612B;letter-spacing:0">Optum</span>`,
     body: `<ul>
              <li>Migrated <b>100+ Jenkins jobs across 10+ teams</b> to GitHub Actions, cutting infra cost</li>
              <li>Replaced CA Release Automation with custom <b>Python</b> deployment tooling</li>
@@ -147,6 +151,7 @@ const ZONES = [
     x: 6700, sign: "2025",
     title: "World 1-5 · Deloitte USI",
     sub: "Senior Software Engineer · Jan 2025 – Present",
+    logo: `<span style="font-family:Arial,sans-serif;font-weight:700;font-size:26px;color:#fff;letter-spacing:0">Deloitte<span style="color:#86BC25">.</span></span>`,
     body: `<ul>
              <li>Senior Software Engineer at <b>Deloitte USI</b></li>
              <li>Working on <b>Azure DevOps</b> platform engineering</li>
@@ -159,17 +164,50 @@ const ZONES = [
   },
 ];
 
+// Skill coins — placed only AFTER the 2016 (Class XII) checkpoint:
+// every skill was acquired after school. slug = simpleicons.org logo,
+// abbr = fallback badge when no logo exists (Azure icons aren't on the CDN).
 const SKILLS = [
-  "PYTHON","BASH","GROOVY","FASTAPI","KUBERNETES","AKS","DOCKER","HELM",
-  "KUSTOMIZE","TERRAFORM","JENKINS","GITHUB ACTIONS","AZURE DEVOPS",
-  "PROMETHEUS","GRAFANA","AZURE","ACR","ARTIFACTORY",
+  { n: "PYTHON",         slug: "python",        c: "#3776AB" },
+  { n: "BASH",           slug: "gnubash",       c: "#4EAA25" },
+  { n: "GROOVY",         slug: "apachegroovy",  c: "#4298B8" },
+  { n: "FASTAPI",        slug: "fastapi",       c: "#009688" },
+  { n: "KUBERNETES",     slug: "kubernetes",    c: "#326CE5" },
+  { n: "AKS",            slug: null,            c: "#0078D4", abbr: "AKS" },
+  { n: "DOCKER",         slug: "docker",        c: "#2496ED" },
+  { n: "HELM",           slug: "helm",          c: "#0F1689" },
+  { n: "KUSTOMIZE",      slug: null,            c: "#326CE5", abbr: "KZ" },
+  { n: "TERRAFORM",      slug: "terraform",     c: "#844FBA" },
+  { n: "JENKINS",        slug: "jenkins",       c: "#D24939" },
+  { n: "GITHUB ACTIONS", slug: "githubactions", c: "#2088FF" },
+  { n: "AZURE DEVOPS",   slug: null,            c: "#0078D4", abbr: "AzD" },
+  { n: "PROMETHEUS",     slug: "prometheus",    c: "#E6522C" },
+  { n: "GRAFANA",        slug: "grafana",       c: "#F46800" },
+  { n: "AZURE",          slug: null,            c: "#0078D4", abbr: "Az" },
+  { n: "ACR",            slug: null,            c: "#0078D4", abbr: "ACR" },
+  { n: "ARTIFACTORY",    slug: "jfrog",         c: "#41BF47" },
 ];
+
+// logo <img> with a colored letter-badge fallback (also used when offline)
+function badgeHTML(abbr, color, size) {
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;` +
+         `width:${size}px;height:${size}px;background:${color};color:#fff;` +
+         `font-weight:bold;font-size:${Math.round(size * 0.42)}px;border-radius:4px;` +
+         `font-family:Arial,sans-serif;vertical-align:middle">${abbr}</span>`;
+}
+function iconHTML(s, size = 22) {
+  if (!s.slug) return badgeHTML(s.abbr || s.n[0], s.c, size);
+  return `<span style="display:inline-flex;vertical-align:middle">` +
+         `<img src="https://cdn.simpleicons.org/${s.slug}" width="${size}" height="${size}" alt="${s.n}"` +
+         ` onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">` +
+         `<span style="display:none">${badgeHTML(s.abbr || s.n[0], s.c, size)}</span></span>`;
+}
 
 const FINAL_HTML = `
   <h2>★ Course Clear! ★</h2>
   <h3>Aditya Kumar Singh · Senior Software Engineer</h3>
-  <p>DevOps engineer with 4+ years across CI/CD, Kubernetes (AKS &amp; on-prem),
-     Python automation and Azure — now building with AI at Deloitte USI.</p>
+  <p>DevOps engineer with <b>4.9 years</b> of experience across CI/CD, Kubernetes
+     (AKS &amp; on-prem), Python automation and Azure — now building with AI at Deloitte USI.</p>
   <div style="margin:12px 0">
     <span class="badge">Microsoft AZ-900</span>
     <span class="badge">GitHub Actions GH-200</span>
@@ -180,6 +218,7 @@ const FINAL_HTML = `
     <li>Portfolio — <a href="https://stalord.in" target="_blank" rel="noopener">stalord.in</a></li>
   </ul>
   <p style="margin-top:14px;color:#fbd000">SKILLS COLLECTED: <span id="finalSkills"></span>/${SKILLS.length}</p>
+  <div id="finalIcons" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px"></div>
   <p class="hint">Press Enter to play again</p>`;
 
 // ---------------- audio (tiny WebAudio beeps) ----------------
@@ -252,9 +291,10 @@ const platforms = []; // {x,y,w}  brick ledges
 ZONES.forEach((z, i) => {
   blocks.push({ x: z.x + 210, y: GROUND_Y - 150, type: "info", zone: i, hit: false, bounce: 0 });
 });
-// skill coins — scattered along the whole run, some on ledges
+// skill coins — start AFTER the 2016 Class XII zone (skills acquired post-school)
+const SKILLS_START_X = 2050;
 SKILLS.forEach((s, i) => {
-  const x = 700 + i * 430;
+  const x = SKILLS_START_X + i * 340;
   const high = i % 3 === 1;
   const y = high ? GROUND_Y - 230 : GROUND_Y - 120;
   coins.push({ x: x, y: y, hx: x, hy: y, mag: false, taken: false, t: Math.random() * 6, skill: s });
@@ -329,18 +369,21 @@ function openDialog(html, winMode) {
   if (winMode) {
     const el = document.getElementById("finalSkills");
     if (el) el.textContent = skillsGot.length;
+    const icons = document.getElementById("finalIcons");
+    if (icons) icons.innerHTML = SKILLS.filter(s => skillsGot.includes(s.n)).map(s => iconHTML(s, 26)).join("");
   }
 }
 function closeDialog() { overlay.innerHTML = ""; if (state !== "win") state = "play"; else state = "play"; }
 
 function showZoneDialog(i) {
   const z = ZONES[i];
-  openDialog(`<h2>${z.title}</h2><h3>${z.sub}</h3>${z.body}
+  const logo = z.logo ? `<div style="margin-bottom:10px">${z.logo}</div>` : "";
+  openDialog(`${logo}<h2>${z.title}</h2><h3>${z.sub}</h3>${z.body}
               <p class="hint">Press Enter to continue</p>`);
 }
 
-function showToast(msg) {
-  toast.textContent = msg;
+function showToast(html) {
+  toast.innerHTML = html;
   toast.style.opacity = 1;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.style.opacity = 0; }, 1400);
@@ -448,9 +491,9 @@ function update() {
     if (Math.abs(pcx - c.x) < 28 && Math.abs(pcy - c.y) < 34) {
       c.taken = true;
       coinCount++;
-      skillsGot.push(c.skill);
+      skillsGot.push(c.skill.n);
       sfx.coin();
-      showToast("+ " + c.skill);
+      showToast(iconHTML(c.skill, 24) + "&nbsp; + " + c.skill.n);
     }
   }
 
@@ -646,7 +689,7 @@ function drawTitle() {
   ctx.fillText("ADITYA KUMAR SINGH", W / 2, 220);
   ctx.font = "16px 'Courier New', monospace";
   ctx.fillStyle = "#7cfc9a";
-  ctx.fillText("SENIOR SOFTWARE ENGINEER · DEVOPS · AZURE · AI", W / 2, 252);
+  ctx.fillText("SENIOR SOFTWARE ENGINEER · 4.9 YRS · DEVOPS · AZURE · AI", W / 2, 252);
   ctx.fillStyle = "#fff";
   ctx.font = "15px 'Courier New', monospace";
   ctx.fillText("← → MOVE      ↑ / SPACE JUMP      ENTER SELECT", W / 2, 330);
@@ -690,6 +733,12 @@ function draw() {
   drawPlayer(player.x - camX, player.y, player.facing, frame * (Math.abs(player.vx) > 0.5 ? 1 : 0), !player.onGround);
   drawHUD();
   if (state === "title") drawTitle();
+}
+
+// deep link: #zone=3 opens that zone's dialog directly (testing / sharing)
+{
+  const zm = location.hash.match(/zone=(\d)/);
+  if (zm && ZONES[+zm[1]]) { state = "play"; shownZones.add(+zm[1]); showZoneDialog(+zm[1]); }
 }
 
 // ---------------- main loop ----------------
