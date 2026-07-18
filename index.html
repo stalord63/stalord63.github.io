@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aditya Kumar Singh — Super Resume Bros</title>
+<style>
+  :root { --nes-blue: #0b1e6b; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #000; overflow: hidden; }
+  body {
+    font-family: "Courier New", monospace;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #wrap { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    max-width: 100vw; max-height: 100vh;
+    aspect-ratio: 16 / 9;
+    background: #5c94fc;
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .dialog {
+    pointer-events: auto;
+    background: var(--nes-blue);
+    border: 4px solid #fff;
+    outline: 4px solid #000;
+    box-shadow: 0 0 0 8px rgba(0,0,0,.25), 0 20px 60px rgba(0,0,0,.6);
+    color: #fff;
+    max-width: min(680px, 88vw);
+    max-height: 80vh; overflow-y: auto;
+    padding: 28px 32px;
+    letter-spacing: 1px;
+    line-height: 1.7;
+  }
+  .dialog h2 { font-size: 18px; color: #fbd000; margin-bottom: 4px; text-transform: uppercase; }
+  .dialog h3 { font-size: 12px; color: #7cfc9a; margin-bottom: 14px; text-transform: uppercase; }
+  .dialog p, .dialog li { font-size: 13px; }
+  .dialog ul { list-style: none; margin-top: 6px; }
+  .dialog li::before { content: "▸ "; color: #fbd000; }
+  .dialog .hint { margin-top: 18px; font-size: 11px; color: #9ab; text-align: center; animation: blink 1.2s steps(2) infinite; }
+  .dialog a { color: #7cd6ff; text-decoration: none; word-break: break-all; }
+  .dialog a:hover { text-decoration: underline; }
+  .badge { display: inline-block; background: #d82800; color: #fff; font-size: 10px; padding: 2px 8px; margin: 2px 4px 2px 0; border: 2px solid #fff; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #toast {
+    position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+    background: #000c; color: #fbd000; border: 3px solid #fbd000;
+    padding: 8px 18px; font-size: 14px; letter-spacing: 2px;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  #touch {
+    position: absolute; bottom: 18px; left: 0; right: 0;
+    display: none; justify-content: space-between; padding: 0 24px;
+    pointer-events: none;
+  }
+  #touch div { display: flex; gap: 14px; pointer-events: auto; }
+  #touch button {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 3px solid #fff; background: #0008; color: #fff;
+    font-size: 26px; font-family: inherit;
+    touch-action: none; user-select: none;
+  }
+  @media (pointer: coarse) { #touch { display: flex; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="540"></canvas>
+  <div class="overlay" id="overlay"></div>
+  <div id="toast"></div>
+  <div id="touch">
+    <div>
+      <button id="btnL">◀</button>
+      <button id="btnR">▶</button>
+    </div>
+    <div>
+      <button id="btnA">A</button>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+// ============================================================
+// SUPER RESUME BROS — Aditya Kumar Singh
+// Arrow keys / A-D to move, Up / Space to jump, Enter to advance
+// ============================================================
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+const W = canvas.width, H = canvas.height;
+const GROUND_Y = 452;          // top of ground
+const WORLD_LEN = 8600;        // px
+const GRAVITY = 0.62;
+
+// ---------------- resume content ----------------
+const ZONES = [
+  {
+    x: 240, sign: "1998",
+    title: "World 1-1 · Gorakhpur",
+    sub: "1998 · A hero spawns",
+    body: `<p>Born in <b>Gorakhpur, Uttar Pradesh</b> in 1998.<br>
+           Player 1 has entered the game.</p>`,
+  },
+  {
+    x: 1750, sign: "2016",
+    title: "World 1-2 · Class XII",
+    sub: "GN National Public School · 2016",
+    body: `<ul>
+             <li>Completed Class 12th in 2016</li>
+             <li>Scored <b>86.6%</b></li>
+             <li>Unlocked: engineering entrance arc</li>
+           </ul>`,
+  },
+  {
+    x: 3300, sign: "2021",
+    title: "World 1-3 · B.Tech (IT)",
+    sub: "KIET Group of Institutions · 2017 – 2021",
+    body: `<ul>
+             <li>B.Tech in Information Technology, Class of 2021</li>
+             <li>CGPA <b>7.9</b></li>
+             <li>Built an <b>Automatic Number Plate Recognition</b> system
+                 (Python · OpenCV · TensorFlow · YOLOv4) — 93% OCR accuracy</li>
+           </ul>`,
+  },
+  {
+    x: 5000, sign: "2021-25",
+    title: "World 1-4 · Optum",
+    sub: "Software Engineer (DevOps) · Gurugram · Sep 2021 – Jan 2025",
+    body: `<ul>
+             <li>Migrated <b>100+ Jenkins jobs across 10+ teams</b> to GitHub Actions, cutting infra cost</li>
+             <li>Replaced CA Release Automation with custom <b>Python</b> deployment tooling</li>
+             <li>Built CI/CD pipelines with GitHub Actions, Jenkins &amp; Azure DevOps</li>
+             <li>Ran workloads on <b>AKS + on-prem Kubernetes (kubeadm)</b>: Helm, NGINX Ingress, RBAC, NFS PVs</li>
+             <li>Monitoring &amp; alerting with <b>Prometheus + Grafana</b></li>
+             <li>Migrated JFrog Artifactory workloads to <b>Azure Container Registry</b></li>
+             <li>Primary contact for release management &amp; production escalations</li>
+           </ul>`,
+  },
+  {
+    x: 6700, sign: "2025",
+    title: "World 1-5 · Deloitte USI",
+    sub: "Senior Software Engineer · Jan 2025 – Present",
+    body: `<ul>
+             <li>Senior Software Engineer at <b>Deloitte USI</b></li>
+             <li>Working on <b>Azure DevOps</b> platform engineering</li>
+             <li>Building <b>AI-powered</b> automation and delivery workflows</li>
+           </ul>
+           <div style="margin-top:10px">
+             <span class="badge">AZ-900 Certified</span>
+             <span class="badge">GH-200 Certified</span>
+           </div>`,
+  },
+];
+
+const SKILLS = [
+  "PYTHON","BASH","GROOVY","FASTAPI","KUBERNETES","AKS","DOCKER","HELM",
+  "KUSTOMIZE","TERRAFORM","JENKINS","GITHUB ACTIONS","AZURE DEVOPS",
+  "PROMETHEUS","GRAFANA","AZURE","ACR","ARTIFACTORY",
+];
+
+const FINAL_HTML = `
+  <h2>★ Course Clear! ★</h2>
+  <h3>Aditya Kumar Singh · Senior Software Engineer</h3>
+  <p>DevOps engineer with 4+ years across CI/CD, Kubernetes (AKS &amp; on-prem),
+     Python automation and Azure — now building with AI at Deloitte USI.</p>
+  <div style="margin:12px 0">
+    <span class="badge">Microsoft AZ-900</span>
+    <span class="badge">GitHub Actions GH-200</span>
+  </div>
+  <ul>
+    <li>GitHub — <a href="https://github.com/stalord63" target="_blank" rel="noopener">github.com/stalord63</a></li>
+    <li>LinkedIn — <a href="https://in.linkedin.com/in/aditya-singh-264627203" target="_blank" rel="noopener">aditya-singh-264627203</a></li>
+    <li>Portfolio — <a href="https://stalord.in" target="_blank" rel="noopener">stalord.in</a></li>
+  </ul>
+  <p style="margin-top:14px;color:#fbd000">SKILLS COLLECTED: <span id="finalSkills"></span>/${SKILLS.length}</p>
+  <p class="hint">Press Enter to play again</p>`;
+
+// ---------------- audio (tiny WebAudio beeps) ----------------
+let audioCtx = null;
+function beep(freq, dur = 0.08, type = "square", vol = 0.04, slide = 0) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    if (slide) o.frequency.linearRampToValueAtTime(freq + slide, audioCtx.currentTime + dur);
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* audio unavailable */ }
+}
+const sfx = {
+  jump: () => beep(320, 0.12, "square", 0.04, 260),
+  coin: () => { beep(988, 0.06); setTimeout(() => beep(1319, 0.12), 60); },
+  bump: () => beep(120, 0.08, "triangle", 0.06),
+  win:  () => [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.16),i*140)),
+};
+
+// ---------------- player sprite (pixel art) ----------------
+const PAL = { R:"#d82800", S:"#fca044", B:"#0048d8", H:"#5c2e00", W:"#fff" };
+const SPRITE = [
+  "...RRRRRR...",
+  "..RRRRRRRRR.",
+  "..HHHSSSHS..",
+  ".HSHSSSSHSS.",
+  ".HSHHSSSSHS.",
+  ".HHSSSSSSHH.",
+  "...SSSSSS...",
+  "..BBRBBBR...",
+  ".BBBRBBBRBB.",
+  ".BBBBRRRBBB.",
+  ".SSBRWRRBSS.",
+  ".SSRRRRRRSS.",
+  ".SSRRRRRRSS.",
+  "..RRR..RRR..",
+  ".HHHH..HHHH.",
+  ".HHHH..HHHH.",
+];
+const SPR_W = 12, SPR_H = 16, SPR_SCALE = 3;
+
+function drawPlayer(px, py, facing, frame, airborne) {
+  ctx.save();
+  ctx.translate(px + SPR_W * SPR_SCALE / 2, py);
+  if (facing < 0) ctx.scale(-1, 1);
+  const bob = airborne ? 0 : Math.abs(Math.sin(frame * 0.35)) * 2;
+  for (let r = 0; r < SPR_H; r++) {
+    for (let c = 0; c < SPR_W; c++) {
+      const ch = SPRITE[r][c];
+      if (ch === ".") continue;
+      ctx.fillStyle = PAL[ch];
+      ctx.fillRect((c - SPR_W / 2) * SPR_SCALE, (r * SPR_SCALE) - bob, SPR_SCALE, SPR_SCALE);
+    }
+  }
+  ctx.restore();
+}
+
+// ---------------- world objects ----------------
+// ? blocks: one per zone (info), plus skill-coin blocks
+const blocks = [];   // {x,y,type:'info'|'skill', zone, skill, hit, bounce}
+const coins = [];    // {x,y,taken,t, skill}
+const pipes = [ {x:1350,h:70}, {x:2900,h:96}, {x:4550,h:70}, {x:6250,h:96}, {x:7350,h:70} ];
+const platforms = []; // {x,y,w}  brick ledges
+
+// zone info blocks
+ZONES.forEach((z, i) => {
+  blocks.push({ x: z.x + 210, y: GROUND_Y - 150, type: "info", zone: i, hit: false, bounce: 0 });
+});
+// skill coins — scattered along the whole run, some on ledges
+SKILLS.forEach((s, i) => {
+  const x = 700 + i * 430;
+  const high = i % 3 === 1;
+  const y = high ? GROUND_Y - 230 : GROUND_Y - 120;
+  coins.push({ x: x, y: y, hx: x, hy: y, mag: false, taken: false, t: Math.random() * 6, skill: s });
+  if (high) platforms.push({ x: x - 66, y: GROUND_Y - 160, w: 132 });
+});
+
+const FLAG_X = 8150, CASTLE_X = 8330;
+
+// ---------------- state ----------------
+const keys = {};
+let state = "title";           // title | play | dialog | win
+let player, camX, frame, coinCount, skillsGot, shownZones, fireworks;
+
+function reset() {
+  player = { x: 60, y: GROUND_Y - SPR_H * SPR_SCALE, vx: 0, vy: 0, facing: 1, onGround: true };
+  camX = 0; frame = 0; coinCount = 0; fireworks = [];
+  skillsGot = [];
+  shownZones = new Set();
+  blocks.forEach(b => { b.hit = false; b.bounce = 0; });
+  coins.forEach(c => { c.taken = false; c.mag = false; c.x = c.hx; c.y = c.hy; });
+}
+reset();
+
+// deep link: index.html#x=5000 jumps straight into the level at that x
+{
+  const m = location.hash.match(/x=(\d+)/);
+  if (m) {
+    player.x = Math.min(WORLD_LEN - SPR_W * SPR_SCALE, Number(m[1]));
+    ZONES.forEach((z, i) => { if (player.x > z.x + 90) shownZones.add(i); });
+    state = "play";
+  }
+}
+
+// ---------------- input ----------------
+const overlay = document.getElementById("overlay");
+const toast = document.getElementById("toast");
+let toastTimer = null;
+
+addEventListener("keydown", (e) => {
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","Enter"].includes(e.key)) e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === "Enter") {
+    if (state === "title") { state = "play"; sfx.coin(); }
+    else if (state === "dialog") closeDialog();
+    else if (state === "win") { closeDialog(); reset(); state = "play"; }
+  }
+});
+addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+
+// touch controls
+function bindTouch(id, key) {
+  const el = document.getElementById(id);
+  const on = (e) => { e.preventDefault(); keys[key] = true; if (state === "title") state = "play"; };
+  const off = (e) => { e.preventDefault(); keys[key] = false; };
+  el.addEventListener("pointerdown", on);
+  el.addEventListener("pointerup", off);
+  el.addEventListener("pointercancel", off);
+  el.addEventListener("pointerleave", off);
+}
+bindTouch("btnL", "arrowleft");
+bindTouch("btnR", "arrowright");
+bindTouch("btnA", "arrowup");
+overlay.addEventListener("click", () => {
+  if (state === "dialog") closeDialog();
+  else if (state === "win") { closeDialog(); reset(); state = "play"; }
+});
+
+// ---------------- dialogs ----------------
+function openDialog(html, winMode) {
+  overlay.innerHTML = `<div class="dialog">${html}</div>`;
+  state = winMode ? "win" : "dialog";
+  if (winMode) {
+    const el = document.getElementById("finalSkills");
+    if (el) el.textContent = skillsGot.length;
+  }
+}
+function closeDialog() { overlay.innerHTML = ""; if (state !== "win") state = "play"; else state = "play"; }
+
+function showZoneDialog(i) {
+  const z = ZONES[i];
+  openDialog(`<h2>${z.title}</h2><h3>${z.sub}</h3>${z.body}
+              <p class="hint">Press Enter to continue</p>`);
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.style.opacity = 1;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.style.opacity = 0; }, 1400);
+}
+
+// ---------------- physics & update ----------------
+const PW = SPR_W * SPR_SCALE, PH = SPR_H * SPR_SCALE;
+
+function update() {
+  if (state !== "play") return;
+  frame++;
+
+  const left = keys["arrowleft"] || keys["a"];
+  const right = keys["arrowright"] || keys["d"];
+  const jump = keys["arrowup"] || keys[" "] || keys["w"];
+
+  const ACC = 0.55, MAX = 4.6, FRICTION = 0.82;
+  if (left)  { player.vx -= ACC; player.facing = -1; }
+  if (right) { player.vx += ACC; player.facing = 1; }
+  if (!left && !right) player.vx *= FRICTION;
+  player.vx = Math.max(-MAX, Math.min(MAX, player.vx));
+
+  if (jump && player.onGround) {
+    player.vy = -12.4;
+    player.onGround = false;
+    sfx.jump();
+  }
+
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(0, Math.min(WORLD_LEN - PW, player.x));
+
+  // ground
+  player.onGround = false;
+  if (player.y + PH >= GROUND_Y) {
+    player.y = GROUND_Y - PH;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  // pipes — solid from the sides & top
+  for (const p of pipes) {
+    const pw = 66, top = GROUND_Y - p.h;
+    if (player.x + PW > p.x && player.x < p.x + pw) {
+      if (player.y + PH > top && player.y + PH - player.vy <= top + 1) {
+        player.y = top - PH; player.vy = 0; player.onGround = true;
+      } else if (player.y + PH > top + 6) {
+        if (player.x + PW / 2 < p.x + pw / 2) player.x = p.x - PW;
+        else player.x = p.x + pw;
+        player.vx = 0;
+      }
+    }
+  }
+
+  // brick ledges — land on top only
+  for (const pl of platforms) {
+    if (player.vy >= 0 &&
+        player.x + PW > pl.x && player.x < pl.x + pl.w &&
+        player.y + PH >= pl.y && player.y + PH - player.vy <= pl.y + 1) {
+      player.y = pl.y - PH; player.vy = 0; player.onGround = true;
+    }
+  }
+
+  // ? blocks — hit from below
+  const BS = 42;
+  for (const b of blocks) {
+    if (b.bounce > 0) b.bounce -= 1;
+    if (player.vy < 0 &&
+        player.x + PW > b.x + 6 && player.x < b.x + BS - 6 &&
+        player.y <= b.y + BS && player.y - player.vy >= b.y + BS - 2) {
+      player.vy = 1.5;
+      b.bounce = 8;
+      if (!b.hit) {
+        b.hit = true;
+        sfx.coin();
+        if (b.type === "info") { shownZones.add(b.zone); showZoneDialog(b.zone); return; }
+      } else sfx.bump();
+    }
+  }
+
+  // zone auto-trigger (first entry)
+  ZONES.forEach((z, i) => {
+    if (!shownZones.has(i) && player.x > z.x + 90) {
+      shownZones.add(i);
+      const blk = blocks.find(b => b.type === "info" && b.zone === i);
+      if (blk) blk.hit = true;
+      showZoneDialog(i);
+    }
+  });
+
+  // coins — magnet: running past a coin pulls it in automatically, no jump needed
+  for (const c of coins) {
+    c.t += 0.15;
+    if (c.taken) continue;
+    const pcx = player.x + PW / 2, pcy = player.y + PH / 2;
+    if (!c.mag && Math.abs(pcx - c.x) < 140) c.mag = true;
+    if (c.mag) {
+      const dx = pcx - c.x, dy = pcy - c.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const sp = Math.min(16, 5 + 700 / d);
+      c.x += (dx / d) * sp;
+      c.y += (dy / d) * sp;
+    }
+    if (Math.abs(pcx - c.x) < 28 && Math.abs(pcy - c.y) < 34) {
+      c.taken = true;
+      coinCount++;
+      skillsGot.push(c.skill);
+      sfx.coin();
+      showToast("+ " + c.skill);
+    }
+  }
+
+  // flag / win
+  if (player.x + PW > FLAG_X + 4 && state === "play") {
+    sfx.win();
+    for (let i = 0; i < 60; i++) {
+      fireworks.push({
+        x: FLAG_X + 100 + Math.random() * 200 - 100,
+        y: 140 + Math.random() * 120,
+        vx: (Math.random() - 0.5) * 3.4,
+        vy: (Math.random() - 0.8) * 3.4,
+        life: 50 + Math.random() * 40,
+        col: ["#fbd000","#d82800","#7cfc9a","#7cd6ff","#fff"][i % 5],
+      });
+    }
+    openDialog(FINAL_HTML, true);
+  }
+
+  camX = Math.max(0, Math.min(player.x - W * 0.38, WORLD_LEN - W));
+}
+
+// ---------------- drawing ----------------
+function rect(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+
+function drawCloud(x, y, s) {
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(x, y, 16 * s, 0, 7);
+  ctx.arc(x + 20 * s, y - 8 * s, 20 * s, 0, 7);
+  ctx.arc(x + 44 * s, y, 16 * s, 0, 7);
+  ctx.fill();
+}
+
+function drawHill(x, y, s) {
+  ctx.fillStyle = "#00a800";
+  ctx.beginPath();
+  ctx.moveTo(x - 70 * s, y);
+  ctx.quadraticCurveTo(x, y - 95 * s, x + 70 * s, y);
+  ctx.fill();
+}
+
+function drawBush(x, y, s) {
+  ctx.fillStyle = "#80d010";
+  ctx.beginPath();
+  ctx.arc(x, y, 13 * s, 0, 7);
+  ctx.arc(x + 16 * s, y - 4 * s, 15 * s, 0, 7);
+  ctx.arc(x + 34 * s, y, 13 * s, 0, 7);
+  ctx.fill();
+}
+
+function drawGround() {
+  rect(0, GROUND_Y, W, H - GROUND_Y, "#c84c0c");
+  ctx.strokeStyle = "#00000040";
+  ctx.lineWidth = 2;
+  const off = -(camX % 44);
+  for (let x = off; x < W + 44; x += 44) {
+    ctx.strokeRect(x, GROUND_Y, 44, 22);
+    ctx.strokeRect(x - 22, GROUND_Y + 22, 44, 22);
+    ctx.strokeRect(x, GROUND_Y + 44, 44, 22);
+    ctx.strokeRect(x - 22, GROUND_Y + 66, 44, 22);
+  }
+  rect(0, GROUND_Y, W, 5, "#00000030");
+}
+
+function drawPipe(p) {
+  const x = p.x - camX, top = GROUND_Y - p.h, pw = 66;
+  if (x < -90 || x > W) return;
+  rect(x + 6, top + 26, pw - 12, p.h - 26, "#00a800");
+  rect(x + 12, top + 26, 10, p.h - 26, "#7cfc9a");
+  rect(x, top, pw, 28, "#00a800");
+  rect(x + 6, top + 4, 12, 20, "#7cfc9a");
+  ctx.strokeStyle = "#004000"; ctx.lineWidth = 3;
+  ctx.strokeRect(x, top, pw, 28);
+  ctx.strokeRect(x + 6, top + 26, pw - 12, p.h - 26);
+}
+
+function drawBlock(b) {
+  const BS = 42, x = b.x - camX, y = b.y - (b.bounce > 4 ? (8 - b.bounce) * 3 : b.bounce > 0 ? b.bounce * 1.5 : 0);
+  if (x < -60 || x > W) return;
+  if (!b.hit) {
+    rect(x, y, BS, BS, "#fbd000");
+    ctx.strokeStyle = "#9c4a00"; ctx.lineWidth = 3;
+    ctx.strokeRect(x + 1, y + 1, BS - 2, BS - 2);
+    ctx.fillStyle = "#9c4a00";
+    ctx.font = "bold 26px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("?", x + BS / 2, y + BS - 11);
+    rect(x + 3, y + 3, 4, 4, "#fff"); rect(x + BS - 7, y + 3, 4, 4, "#fff");
+    rect(x + 3, y + BS - 7, 4, 4, "#fff"); rect(x + BS - 7, y + BS - 7, 4, 4, "#fff");
+  } else {
+    rect(x, y, BS, BS, "#9c4a00");
+    ctx.strokeStyle = "#5c2e00"; ctx.lineWidth = 3;
+    ctx.strokeRect(x + 1, y + 1, BS - 2, BS - 2);
+  }
+}
+
+function drawPlatform(pl) {
+  const x = pl.x - camX;
+  if (x + pl.w < 0 || x > W) return;
+  for (let i = 0; i < pl.w; i += 33) {
+    rect(x + i, pl.y, 31, 30, "#c84c0c");
+    ctx.strokeStyle = "#5c2e00"; ctx.lineWidth = 2;
+    ctx.strokeRect(x + i, pl.y, 31, 30);
+    ctx.beginPath();
+    ctx.moveTo(x + i, pl.y + 15); ctx.lineTo(x + i + 31, pl.y + 15);
+    ctx.stroke();
+  }
+}
+
+function drawCoin(c) {
+  if (c.taken) return;
+  const x = c.x - camX;
+  if (x < -30 || x > W + 30) return;
+  const squash = Math.abs(Math.cos(c.t));
+  ctx.save();
+  ctx.translate(x, c.y + Math.sin(c.t * 0.7) * 3);
+  ctx.scale(Math.max(0.15, squash), 1);
+  ctx.fillStyle = "#fbd000";
+  ctx.beginPath(); ctx.arc(0, 0, 12, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#9c4a00"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = "#9c4a00"; ctx.fillRect(-2, -6, 4, 12);
+  ctx.restore();
+}
+
+function drawSign(z) {
+  const x = z.x - camX;
+  if (x < -160 || x > W) return;
+  rect(x + 26, GROUND_Y - 58, 10, 58, "#9c4a00");
+  rect(x - 14, GROUND_Y - 96, 92, 44, "#fbd000");
+  ctx.strokeStyle = "#9c4a00"; ctx.lineWidth = 3;
+  ctx.strokeRect(x - 14, GROUND_Y - 96, 92, 44);
+  ctx.fillStyle = "#5c2e00";
+  ctx.font = "bold 15px 'Courier New', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(z.sign, x + 32, GROUND_Y - 68);
+}
+
+function drawFlagAndCastle() {
+  const fx = FLAG_X - camX;
+  if (fx > -80 && fx < W + 80) {
+    rect(fx, GROUND_Y - 320, 6, 320, "#7cfc9a");
+    ctx.fillStyle = "#00a800";
+    ctx.beginPath(); ctx.arc(fx + 3, GROUND_Y - 322, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = "#d82800";
+    ctx.beginPath();
+    ctx.moveTo(fx + 6, GROUND_Y - 312);
+    ctx.lineTo(fx + 64, GROUND_Y - 290);
+    ctx.lineTo(fx + 6, GROUND_Y - 268);
+    ctx.fill();
+  }
+  const cx = CASTLE_X - camX;
+  if (cx > -300 && cx < W + 300) {
+    rect(cx, GROUND_Y - 150, 210, 150, "#b0b0b0");
+    rect(cx + 55, GROUND_Y - 230, 100, 80, "#b0b0b0");
+    ctx.fillStyle = "#787878";
+    for (let i = 0; i < 5; i++) rect(cx + i * 44, GROUND_Y - 166, 26, 16, "#b0b0b0");
+    for (let i = 0; i < 3; i++) rect(cx + 55 + i * 38, GROUND_Y - 246, 24, 16, "#b0b0b0");
+    rect(cx + 80, GROUND_Y - 70, 50, 70, "#3c3c3c");
+    ctx.beginPath(); ctx.arc(cx + 105, GROUND_Y - 70, 25, Math.PI, 0); ctx.fillStyle = "#3c3c3c"; ctx.fill();
+    rect(cx + 66, GROUND_Y - 210, 18, 24, "#3c3c3c");
+    rect(cx + 126, GROUND_Y - 210, 18, 24, "#3c3c3c");
+  }
+}
+
+function drawHUD() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 15px 'Courier New', monospace";
+  ctx.textAlign = "left";
+  ctx.fillText("ADITYA", 24, 30);
+  ctx.fillText("×∞", 24, 50);
+  ctx.textAlign = "center";
+  ctx.fillText("COINS", W * 0.33, 30);
+  ctx.fillText("× " + coinCount, W * 0.33, 50);
+  ctx.fillText("SKILLS", W * 0.55, 30);
+  ctx.fillText(skillsGot.length + " / " + SKILLS.length, W * 0.55, 50);
+  ctx.fillText("WORLD", W * 0.76, 30);
+  const zi = ZONES.filter(z => player.x > z.x).length;
+  ctx.fillText("1-" + Math.max(1, zi), W * 0.76, 50);
+  ctx.textAlign = "right";
+  ctx.fillText("TIME", W - 24, 30);
+  ctx.fillText("∞", W - 24, 50);
+}
+
+function drawTitle() {
+  rect(0, 0, W, H, "#0b1e6bcc");
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fbd000";
+  ctx.font = "bold 44px 'Courier New', monospace";
+  ctx.fillText("SUPER RESUME BROS", W / 2, 170);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 22px 'Courier New', monospace";
+  ctx.fillText("ADITYA KUMAR SINGH", W / 2, 220);
+  ctx.font = "16px 'Courier New', monospace";
+  ctx.fillStyle = "#7cfc9a";
+  ctx.fillText("SENIOR SOFTWARE ENGINEER · DEVOPS · AZURE · AI", W / 2, 252);
+  ctx.fillStyle = "#fff";
+  ctx.font = "15px 'Courier New', monospace";
+  ctx.fillText("← → MOVE      ↑ / SPACE JUMP      ENTER SELECT", W / 2, 330);
+  ctx.fillText("HIT ? BLOCKS · COLLECT SKILL COINS · REACH THE CASTLE", W / 2, 358);
+  if (Math.floor(performance.now() / 500) % 2 === 0) {
+    ctx.fillStyle = "#fbd000";
+    ctx.font = "bold 18px 'Courier New', monospace";
+    ctx.fillText("PRESS ENTER TO START", W / 2, 430);
+  }
+  ctx.fillStyle = "#9ab";
+  ctx.font = "12px 'Courier New', monospace";
+  ctx.fillText("© 1998 - " + new Date().getFullYear() + " STALORD.IN", W / 2, 500);
+}
+
+function draw() {
+  // sky
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#5c94fc"); g.addColorStop(1, "#8ec5ff");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // parallax scenery
+  for (let i = 0; i < 14; i++) drawCloud(((i * 730 + 100) - camX * 0.35 % (WORLD_LEN)) % (WORLD_LEN * 0.4) - 60, 70 + (i % 3) * 44, 0.8 + (i % 3) * 0.25);
+  for (let i = 0; i < 12; i++) drawHill((i * 900 + 300) - camX * 0.6, GROUND_Y, 0.8 + (i % 2) * 0.5);
+  for (let i = 0; i < 20; i++) drawBush((i * 560 + 180) - camX * 0.85, GROUND_Y, 0.8 + (i % 3) * 0.3);
+
+  drawGround();
+  ZONES.forEach(drawSign);
+  pipes.forEach(drawPipe);
+  platforms.forEach(drawPlatform);
+  blocks.forEach(drawBlock);
+  coins.forEach(drawCoin);
+  drawFlagAndCastle();
+
+  // fireworks
+  fireworks = fireworks.filter(f => f.life > 0);
+  for (const f of fireworks) {
+    f.x += f.vx; f.y += f.vy; f.vy += 0.04; f.life--;
+    rect(f.x - camX, f.y, 5, 5, f.col);
+  }
+
+  drawPlayer(player.x - camX, player.y, player.facing, frame * (Math.abs(player.vx) > 0.5 ? 1 : 0), !player.onGround);
+  drawHUD();
+  if (state === "title") drawTitle();
+}
+
+// ---------------- main loop ----------------
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
